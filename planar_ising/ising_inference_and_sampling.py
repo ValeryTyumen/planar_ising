@@ -12,13 +12,28 @@ from . import expanded_dual_graph_constructor, nested_dissection, kasteleyn_matr
 
 
 class IsingInferenceAndSampling:
+    """
+    A class performing inference/sampling in Planar Zero-Field Ising Models.
+    """
 
     def __init__(self, ising_model):
+        """
+        Initialization.
+
+        Parameters
+        ----------
+        ising_model : PlanarIsingModel
+            Input model.
+        """
 
         self._initial_model = ising_model
         self._is_prepared_for_sampling = False
 
     def prepare_for_sampling(self):
+        """
+        Precompute data structures (nested dissection, etc.) required for sampling. It is required
+        to run this method before the first `sample_spin_configurations` method call.
+        """
 
         self._new_edge_indices_mapping, self._ising_model, self._graph_edges_mapping, \
                 self._expanded_dual_graph, self._weights, self._kasteleyn_orientation, \
@@ -37,6 +52,9 @@ class IsingInferenceAndSampling:
         self._is_prepared_for_sampling = True
 
     def compute_log_partition_function(self):
+        """
+        Log-partition function computation.
+        """
 
         new_edge_indices_mapping, ising_model, graph_edges_mapping, expanded_dual_graph, weights, \
                 kasteleyn_orientation, nested_dissection_map = _prepare_data(self._initial_model)
@@ -45,6 +63,19 @@ class IsingInferenceAndSampling:
                 expanded_dual_graph, weights, kasteleyn_orientation, nested_dissection_map)
 
     def sample_spin_configurations(self, sample_size):
+        """
+        Draw a sample of spin configurations.
+
+        Parameters
+        ----------
+        sample_size : int
+            The size of a sample to be drawn.
+
+        Returns
+        -------
+        array_like
+            Array of shape `(sample_size, spins_count)` with spin configuration as rows.
+        """
 
         if not self._is_prepared_for_sampling:
             raise RuntimeError('Not prepared for sampling.')
