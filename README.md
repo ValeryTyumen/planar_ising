@@ -1,21 +1,22 @@
 # planar_ising
 
 Inference and sampling of Planar Zero-Field Ising Models
+
 Author - Valerii Likhosherstov
 
 
 ## Preamble
 
-In the general case, inference/sampling of [Ising Model](https://en.wikipedia.org/wiki/Ising_model) is intractable, i.e. requires exponential time. However, when (a) its topology has a planar structure and (b) magnetic fields are set to zero, it is possible to find exact value of partition function and draw samples from model's distrubiton exactly in *O(n<sup>3/2</sup>)* time, where *n* is the number of spins.
+In the general case, inference/sampling of [Ising Model](https://en.wikipedia.org/wiki/Ising_model) is intractable, i.e. it requires exponential time. However, when (a) its topology has a planar structure and (b) magnetic fields are set to zero, it is possible to find exact value of partition function and draw samples from model's distrubiton exactly in *O(n<sup>3/2</sup>)* time, where *n* is the number of spins.
 
-The framework for that is implemented in this repository. Its description and proof of correctness isn't published yet, but we're working on that. The key feature of the framework is its universality and scalability, allowing to work with any planar models with thousands of spins.
+The framework for that is implemented in this repository. Its description and proof of correctness aren't published yet, but we're working on that. The key feature of the framework is its universality and scalability, allowing to work with any planar models with thousands of spins.
 
 
 ## Background and idea
 
-There are plenty of results dedicated to Planar Ising Models inference [1, 2, 3, 4] and sampling [5, 6]. We use one-to-one correspondence between spin configurations and dimer coverings on the expanded dual graph [2, 3] to switch to perfect matching sampling problem. The routine for that was elaborated by Wilson [7], which is based on recusive subdivision of the planar graphs using planar separators [8] (*nested dissection*). 
+There are plenty of results dedicated to Planar Ising Models inference [1, 2, 3, 4] and sampling [5, 6]. We use one-to-one correspondence between spin configurations and dimer coverings on the expanded dual graph [2, 3] to switch to perfect matching sampling problem. The routine for that was elaborated by Wilson [7], and it is based on recusive subdivision of the planar graphs using planar separators [8] (*nested dissection*). 
 
-The idea to use Wilson's algorithm for spin configuration sampling was suggested in [5], but authors only apply it for the special case of square lattice topologies. Indeed, square lattices have a very simple planar separators, while a general Lipton-Tarjan is very computationally intensive. What we propose is an improved version of Wilson's algorithm, where nested dissection computation can be put aside into preprocessing time and reused over multiple samplings.
+The idea to use Wilson's algorithm for spin configuration sampling was suggested in [5], but authors only apply it for the special case of square lattice topologies. Indeed, square lattices have a very simple planar separators, while the general-purpose Lipton-Tarjan algorithm is very computationally intensive. What we propose is an improved version of Wilson's algorithm, where nested dissection computation can be put aside to preprocessing time and reused over multiple samplings.
 
 
 ## About the code
@@ -25,11 +26,10 @@ The list of code dependencies includes NumPy, [Numba](https://numba.pydata.org/)
 
 ## Testing
 
-See [inference_tests](https://github.com/ValeryTyumen/planar_ising/blob/master/tests/inference_tests.ipynb) and [sampling_tests](https://github.com/ValeryTyumen/planar_ising/blob/master/tests/sampling_tests.ipynb) notebooks, justifying correctness of the inference and sampling code on randomly generated Planar Ising Models of different size and illustrating execution time complexity of the framework.
+See [inference_tests](https://github.com/ValeryTyumen/planar_ising/blob/master/tests/inference_tests.ipynb) and [sampling_tests](https://github.com/ValeryTyumen/planar_ising/blob/master/tests/sampling_tests.ipynb) notebooks, justifying correctness of the inference and sampling code on randomly generated models of different size. They also illustrate execution time complexity of the framework.
 
 
 ## Documentation
-
 
 Check docstrings and see [presentation](https://github.com/ValeryTyumen/planar_ising/blob/master/presentation.ipynb) notebook to know more about available functionality in the framework.
 
@@ -37,7 +37,7 @@ Check docstrings and see [presentation](https://github.com/ValeryTyumen/planar_i
 ## Further development
 
 - The construction exploited in the framework seems to be compatible with exact conditional inference/sampling, as well as back-propagation (marginal probabilities inference).
-- The support for multiprecision arithmetic would reinforce numerical stability of LU-decompositions for large-scale models with significant diversity in interaction values. So far all computations are conducted in double-precision arithmetic.
+- A support for multiprecision arithmetic would reinforce numerical stability of LU-decompositions for large-scale models with significant diversity in interaction values. So far all computations are conducted in double-precision arithmetic.
 
 ## References
 
