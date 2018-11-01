@@ -1,8 +1,19 @@
+import os
 import numpy as np
 from numba import jit
 from numba import void, int32, boolean, float32
-from lipton_tarjan import planar_graph_nb_type
+from lipton_tarjan import planar_graph_nb_type, PlanarGraph
 
+
+def get_numba_type(class_):
+
+    numba_disable_jit_variable = 'NUMBA_DISABLE_JIT'
+
+    if numba_disable_jit_variable not in os.environ or \
+            os.environ[numba_disable_jit_variable] != '1':
+        return class_.class_type.instance_type
+
+    return int32
 
 @jit(int32[:](int32, int32), nopython=True)
 def repeat_int(value, count):
@@ -27,6 +38,15 @@ def repeat_float(value, count):
     array[:] = value
 
     return array
+
+@jit(planar_graph_nb_type(planar_graph_nb_type), nopython=True)
+def normalize_vertex_costs(graph):
+
+    vertex_costs = graph.vertex_costs.copy()
+
+    vertex_costs /= vertex_costs.sum()
+
+    return PlanarGraph(vertex_costs, graph.incident_edge_example_indices, graph.edges)
 
 def make_traverse_graph_via_post_order_dfs(callback, result_nb_type):
 

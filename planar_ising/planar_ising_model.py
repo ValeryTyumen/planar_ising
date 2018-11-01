@@ -1,6 +1,7 @@
 from numba import jitclass
-from numba.types import float64
+from numba.types import int32, float64
 from lipton_tarjan import planar_graph_nb_type
+from . import numba_utils
 
 
 @jitclass([('_graph', planar_graph_nb_type), ('_interaction_values', float64[:])])
@@ -48,4 +49,4 @@ class PlanarIsingModel:
                 spin_values[self._graph.edges.vertex2]).sum()
 
 
-planar_ising_model_nb_type = PlanarIsingModel.class_type.instance_type
+planar_ising_model_nb_type = numba_utils.get_numba_type(PlanarIsingModel)

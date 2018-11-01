@@ -1,5 +1,6 @@
 from numba import jitclass
 from numba.types import int32, boolean
+from . import numba_utils
 
 
 @jitclass([('_first', int32[:]), ('_second', int32[:])])
@@ -26,4 +27,4 @@ class GraphEdgesMapping:
         return self._second
 
 
-graph_edges_mapping_nb_type = GraphEdgesMapping.class_type.instance_type
+graph_edges_mapping_nb_type = numba_utils.get_numba_type(GraphEdgesMapping)

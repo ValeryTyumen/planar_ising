@@ -1,5 +1,6 @@
 from numba import jitclass
 from numba.types import int32
+from . import numba_utils
 
 
 @jitclass([('_in_order_map', int32[:]), ('_in_order_pre_order_mapping', int32[:])])
@@ -21,4 +22,4 @@ class NestedDissectionMap:
         return self._in_order_pre_order_mapping
 
 
-nested_dissection_map_nb_type = NestedDissectionMap.class_type.instance_type
+nested_dissection_map_nb_type = numba_utils.get_numba_type(NestedDissectionMap)

@@ -11,6 +11,8 @@ from . import utils
         nopython=True)
 def add_neighbours_to_top_level_separator(graph, nd_map):
 
+    #TODO: rewrite in matrix operations
+
     top_level_separator_in_order_index = np.where(nd_map.in_order_pre_order_mapping == 0)[0][0]
 
     if not np.any(nd_map.in_order_map == top_level_separator_in_order_index):
@@ -50,15 +52,6 @@ def get_nested_dissection_permutation_and_top_level_separator_size(graph, nd_map
 
     return permutation, 2*top_level_separator_edges_count
 
-@jit(planar_graph_nb_type(planar_graph_nb_type), nopython=True)
-def _normalize_vertex_costs(graph):
-
-    vertex_costs = graph.vertex_costs.copy()
-
-    vertex_costs /= vertex_costs.sum()
-
-    return PlanarGraph(vertex_costs, graph.incident_edge_example_indices, graph.edges)
-
 @jit(nested_dissection_map_nb_type(planar_graph_nb_type, boolean[:]), nopython=True)
 def _get_nested_dissection_submap(graph, vertices_for_map_mask):
 
@@ -93,7 +86,7 @@ def _get_nested_dissection_submap(graph, vertices_for_map_mask):
                 planar_graph_constructor.construct_subgraph(graph, subgraph_vertices_mask,
                 non_separator_edges_mask)
 
-        subgraph = _normalize_vertex_costs(subgraph)
+        subgraph = utils.normalize_vertex_costs(subgraph)
 
         graph_vertices_mapping = utils.get_inverse_sub_mapping(subgraph_vertices_mapping,
                 subgraph.size)
