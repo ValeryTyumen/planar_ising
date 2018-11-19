@@ -17,11 +17,11 @@ Efficient graph separation is needed to achieve tight polynomial bounds on plana
 
 ## Testing
 
-See [tests](https://github.com/ValeryTyumen/lipton_tarjan/blob/master/test_notebooks/separator_tests.ipynb) notebook, which validates correctness of the separation code on randomly generated planar graphs of different size. It also illustrates that execution time of the algorithm is linear indeed.
+See [tests](https://github.com/ValeryTyumen/planar_ising/blob/master/test_notebooks/separator_tests.ipynb) notebook, which validates correctness of the separation code on randomly generated planar graphs of different size. It also illustrates that execution time of the algorithm is linear indeed.
 
 ## Documentation
 
-Check docstrings and see [presentation](https://github.com/ValeryTyumen/lipton_tarjan/blob/master/presentation_notebooks/lipton_tarjan.ipynb) notebook to know more about available functionality in the framework.
+Check docstrings and see [presentation](https://github.com/ValeryTyumen/planar_ising/blob/master/presentation_notebooks/lipton_tarjan.ipynb) notebook to know more about available functionality in the framework.
 
 ## References
 
