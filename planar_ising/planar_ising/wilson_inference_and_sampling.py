@@ -30,28 +30,109 @@ class WilsonInferenceAndSampling:
 
         self._initial_model = ising_model
         self._is_prepared_for_sampling = False
+ 
+    def _find_dual_edge_index(self, graph_edges_mapping, edge_index):
+
+        return np.where((graph_edges_mapping.first == edge_index) & \
+                (graph_edges_mapping.second == -1))[0]
+
+    def _compute_constrained_log_partition_function(self, edge_index):
+
+        new_edge_indices_mapping, ising_model, graph_edges_mapping, expanded_dual_graph, weights, \
+                kasteleyn_orientation = _prepare_data(self._initial_model)
+ 
+        spin_values = np.zeros(ising_model.graph.size, dtype=np.int32)
+
+        if edge_index != -1:
+
+            edge_index = new_edge_indices_mapping[edge_index]
+
+            dual_edge_index = self._find_dual_edge_index(graph_edges_mapping, edge_index)
+            weights[dual_edge_index] = 0
+ 
+            vertex1 = ising_model.graph.edges.vertex1[edge_index]
+            vertex2 = ising_model.graph.edges.vertex2[edge_index]
+
+            spin_values[vertex1] = 1
+            spin_values[vertex2] = -1
+
+        return _compute_log_partition_function(ising_model, graph_edges_mapping,
+                expanded_dual_graph, weights, kasteleyn_orientation, spin_values)
 
     def compute_log_partition_function(self):
         """
         Log-partition function computation.
+
+        Returns
+        -------
+        float
+            Log partition function.
         """
 
-        ising_model, graph_edges_mapping, expanded_dual_graph, weights, kasteleyn_orientation = \
+        return self._compute_constrained_log_partition_function(-1)
+
+    def compute_constrained_log_partition_function(self, edge_index):
+        """
+        Find the weight of the event "spins incident to edge are equal/unequal".
+
+        Parameters
+        ----------
+        edge_index : int
+            Edge between spins defining the event.
+
+        Returns
+        -------
+        float
+            Log weight of the event.
+        """
+
+        return self._compute_constrained_log_partition_function(edge_index)
+
+    def _prepare_for_constrained_sampling(self, edge_index, are_equal):
+
+        self._condition_edge_index = edge_index
+        self._are_equal_condition = are_equal
+
+        new_edge_indices_mapping, self._ising_model, self._graph_edges_mapping, \
+                self._expanded_dual_graph, self._weights, self._kasteleyn_orientation = \
                 _prepare_data(self._initial_model)
 
-        return _compute_log_partition_function(ising_model, graph_edges_mapping,
-                expanded_dual_graph, weights, kasteleyn_orientation)
-
-    def prepare_for_sampling(self):
-        """
-        Precompute data structures required for sampling. It is required
-        to run this method before the first `sample_spin_configurations` method call.
-        """
-
-        self._ising_model, self._graph_edges_mapping, self._expanded_dual_graph, self._weights, \
-                self._kasteleyn_orientation = _prepare_data(self._initial_model)
-
         spin_values = np.zeros(self._ising_model.graph.size, dtype=np.int32)
+
+        if edge_index != -1:
+
+            edge_index = new_edge_indices_mapping[edge_index]
+
+            dual_edge_index = self._find_dual_edge_index(self._graph_edges_mapping, edge_index)
+
+            if are_equal:
+
+                dual_edges = self._expanded_dual_graph.edges
+
+                dual_vertex1 = dual_edges.vertex1[dual_edge_index]
+                dual_vertex2 = dual_edges.vertex2[dual_edge_index]
+
+                zero_out_mask = ((dual_edges.vertex1 == dual_vertex1) | \
+                        (dual_edges.vertex1 == dual_vertex2) | \
+                        (dual_edges.vertex2 == dual_vertex1) | \
+                        (dual_edges.vertex2 == dual_vertex2))
+
+                zero_out_mask[dual_edge_index] = False
+
+                self._weights[zero_out_mask] = 0
+
+            else:
+                self._weights[dual_edge_index] = 0
+
+            vertex1 = self._ising_model.graph.edges.vertex1[edge_index]
+            vertex2 = self._ising_model.graph.edges.vertex2[edge_index]
+
+            spin_values[vertex1] = 1
+
+            if are_equal:
+                spin_values[vertex2] = 1
+            else:
+                spin_values[vertex2] = -1
 
         self._top_level_separation, self._dilated_top_level_separator_vertices, \
                 self._separator_vertices_in_dilated_separator_mask, \
@@ -61,6 +142,30 @@ class WilsonInferenceAndSampling:
                 self._weights, self._kasteleyn_orientation, spin_values)
 
         self._is_prepared_for_sampling = True
+
+    def prepare_for_sampling(self):
+        """
+        Precompute data structures required for sampling. It is required
+        to run this method before the first `sample_spin_configurations` method call.
+        """
+
+        return self._prepare_for_constrained_sampling(-1, True)
+
+    def prepare_for_constrained_sampling(self, edge_index, are_equal):
+        """
+        Precompute data structures required for sampling conditional on the event "spins incident to
+        edge are equal/unequal". It is required to run this method before the first
+        `sample_spin_configurations` method call.
+
+        Parameters
+        ----------
+        edge_index : int
+            Edge between spins defining the event.
+        are_equal : boolean
+            Whether the event is for equal or unequal spins.
+        """
+
+        return self._prepare_for_constrained_sampling(edge_index, are_equal)
 
     def sample_spin_configurations(self, sample_size):
         """
@@ -74,7 +179,7 @@ class WilsonInferenceAndSampling:
         Returns
         -------
         array_like
-            Array of shape `(sample_size, spins_count)` with spin configuration as rows.
+            Array of shape `(sample_size, spins_count)` with spin configurations as rows.
         """
 
         if not self._is_prepared_for_sampling:
@@ -85,15 +190,16 @@ class WilsonInferenceAndSampling:
                 self._kasteleyn_orientation, self._top_level_separation,
                 self._dilated_top_level_separator_vertices,
                 self._separator_vertices_in_dilated_separator_mask,
-                self._inverse_lower_right_kasteleyn_submatrix)
+                self._inverse_lower_right_kasteleyn_submatrix, self._condition_edge_index,
+                self._are_equal_condition)
 
 
-@jit(Tuple((planar_ising_model_nb_type, graph_edges_mapping_nb_type, planar_graph_nb_type,
+@jit(Tuple((int32[:], planar_ising_model_nb_type, graph_edges_mapping_nb_type, planar_graph_nb_type,
         float64[:], int32[:]))(planar_ising_model_nb_type),
         nopython=True)
 def _prepare_data(ising_model):
 
-    _, ising_model = utils.triangulate_ising_model(ising_model)
+    new_edge_indices_mapping, ising_model = utils.triangulate_ising_model(ising_model)
 
     graph = ising_model.graph
     interaction_values = ising_model.interaction_values
@@ -107,7 +213,8 @@ def _prepare_data(ising_model):
             expanded_dual_graph_constructor.get_kasteleyn_orientation(graph,
             graph_edges_mapping, expanded_dual_graph)
 
-    return ising_model, graph_edges_mapping, expanded_dual_graph, weights, kasteleyn_orientation
+    return new_edge_indices_mapping, ising_model, graph_edges_mapping, expanded_dual_graph, \
+            weights, kasteleyn_orientation
 
 @jit(void(planar_graph_nb_type, int32), nopython=True)
 def _iterate_edge_incidences(graph, edge_index):
@@ -253,11 +360,9 @@ def _get_vertices_permutation(expanded_dual_subgraph, perfect_matching_mask, pm_
     return vertices_permutation
 
 @jit(float64(planar_ising_model_nb_type, graph_edges_mapping_nb_type, planar_graph_nb_type,
-        float64[:], int32[:]), nopython=True)
+        float64[:], int32[:], int32[:]), nopython=True)
 def _compute_log_partition_function(ising_model, graph_edges_mapping, expanded_dual_graph, weights,
-        kasteleyn_orientation):
-
-    spin_values = np.zeros(ising_model.graph.size, dtype=np.int32)
+        kasteleyn_orientation, spin_values):
 
     perfect_matching_mask = \
             expanded_dual_graph_constructor.get_expanded_dual_subgraph_perfect_matching(
@@ -424,16 +529,22 @@ def _sample_perfect_matching_in_subgraph(graph, graph_edges_mapping, expanded_du
         on_first_subsubgraph = False
 
 @jit(int32[:, :](int32, planar_graph_nb_type, graph_edges_mapping_nb_type, planar_graph_nb_type,
-        float64[:], int32[:], int32[:], int32[:], boolean[:], float64[:, :]), nopython=True)
+        float64[:], int32[:], int32[:], int32[:], boolean[:], float64[:, :], int32, boolean),
+        nopython=True)
 def _sample_spin_configurations(sample_size, graph, graph_edges_mapping, expanded_dual_graph,
         weights, kasteleyn_orientation, top_level_separation, dilated_top_level_separator_vertices,
-        separator_vertices_in_dilated_separator_mask, inverse_lower_right_kasteleyn_submatrix):
+        separator_vertices_in_dilated_separator_mask, inverse_lower_right_kasteleyn_submatrix,
+        conditional_edge_index, are_equal_condition):
 
     result = np.zeros((np.int64(sample_size), np.int64(graph.size)), dtype=np.int32)
 
     for sample_index in range(sample_size):
 
         partial_spin_configuration = PartialSpinConfiguration(graph)
+
+        if conditional_edge_index != -1:
+            partial_spin_configuration.set_spin_pair(conditional_edge_index,
+                    are_equal_condition)
 
         _sample_perfect_matching_in_subgraph(graph, graph_edges_mapping, expanded_dual_graph,
                 weights, kasteleyn_orientation, partial_spin_configuration,
