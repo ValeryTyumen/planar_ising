@@ -4,6 +4,9 @@ Inference and sampling of planar and near-planar zero-field Ising models
 
 Author - Valerii Likhosherstov
 
+## Recent Changes
+
+- K33-free topologies added, **preprint to appear soon**.
 
 ## Introduction
 
