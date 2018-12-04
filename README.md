@@ -2,7 +2,11 @@
 
 Inference and sampling of planar and near-planar zero-field Ising models
 
-Author - Valerii Likhosherstov
+Authors: Valerii Likhosherstov<sup>1</sup>, Yury Maximov<sup>1,2</sup> and Michael Chertkov<sup>1,2</sup>
+
+<sup>1</sup> Skolkovo Institute of Science and Technology, Moscow, Russia
+
+<sup>2</sup> Theoretical Division and Center for Nonlinear Studies, Los Alamos National Laboratory, Los Alamos, NM, USA
 
 ## Recent Changes
 
