@@ -10,7 +10,7 @@ Authors: Valerii Likhosherstov<sup>1</sup>, Yury Maximov<sup>1,2</sup> and Micha
 
 ## Recent Changes
 
-- K33-free topologies added, **preprint to appear soon**.
+- **K33-free topologies added, preprint link:** https://arxiv.org/abs/1812.09587.
 
 ## Introduction
 
