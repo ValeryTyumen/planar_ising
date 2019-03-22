@@ -88,6 +88,68 @@ class WilsonInferenceAndSampling:
 
         return self._compute_constrained_log_partition_function(edge_index)
 
+    def compute_constrained_on_subset_log_partition_function(self, subset_indices,
+            subset_spin_values):
+
+        new_edge_indices_mapping, ising_model, graph_edges_mapping, expanded_dual_graph, weights, \
+                kasteleyn_orientation = _prepare_data(self._initial_model)
+
+        graph = ising_model.graph
+
+        spin_values = np.zeros(ising_model.graph.size, dtype=np.int32)
+
+        spin_values[subset_indices] = subset_spin_values
+
+        #TODO: rewrite via vectors
+
+        for incident_edge_index in range(expanded_dual_graph.edges_count):
+
+            zero_out_neighbours = False
+
+            first_dual_edge_index = graph_edges_mapping.first[incident_edge_index]
+            second_dual_edge_index = graph_edges_mapping.second[incident_edge_index]
+
+            if second_dual_edge_index == -1:
+
+                spin_value1 = spin_values[graph.edges.vertex1[first_dual_edge_index]]
+                spin_value2 = spin_values[graph.edges.vertex2[first_dual_edge_index]]
+
+                if spin_value1 != 0 and spin_value2 != 0:
+
+                    if spin_value1 == spin_value2:
+                        zero_out_neighbours = True
+                    else:
+                        weights[incident_edge_index] = 0
+            else:
+
+                spin_value1 = spin_values[graph.edges.vertex1[first_dual_edge_index]]
+                spin_value2 = spin_values[graph.edges.vertex2[first_dual_edge_index]]
+                spin_value3 = spin_values[graph.edges.vertex1[second_dual_edge_index]]
+                spin_value4 = spin_values[graph.edges.vertex2[second_dual_edge_index]]
+
+                if spin_value1 != 0 and spin_value2 != 0 and spin_value3 != 0 and spin_value4 != 0:
+
+                    if spin_value1 != spin_value2 and spin_value3 != spin_value4:
+                        zero_out_neighbours = True
+                    else:
+                        weights[incident_edge_index] = 0 
+
+            if zero_out_neighbours:
+
+                vertex = expanded_dual_graph.edges.vertex1[incident_edge_index]
+
+                next_incident_edge_index = expanded_dual_graph.edges.get_next_edge_index(\
+                        incident_edge_index, vertex)
+                previous_incident_edge_idex = \
+                        expanded_dual_graph.edges.get_previous_edge_index(incident_edge_index,
+                        vertex)
+
+                weights[next_incident_edge_index] = 0
+                weights[previous_incident_edge_idex] = 0
+
+        return _compute_log_partition_function(ising_model, graph_edges_mapping,
+                expanded_dual_graph, weights, kasteleyn_orientation, spin_values) - np.log(2)
+
     def _prepare_for_constrained_sampling(self, edge_index, are_equal):
 
         self._condition_edge_index = edge_index
