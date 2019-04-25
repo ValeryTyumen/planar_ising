@@ -278,7 +278,7 @@ kl_statistics = collect_kl_statistics(interaction_values_std, model_sizes,
 draw_kl_statistics(model_sizes, sample_log2_sizes, kl_statistics)
 print()
 
-model_log2_sizes = np.arange(3, 12)
+model_log2_sizes = np.arange(3, 11)
 models_per_size = 10
 
 execution_times = measure_execution_times(interaction_values_std, model_log2_sizes,
