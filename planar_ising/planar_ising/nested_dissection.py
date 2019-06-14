@@ -1,127 +1,82 @@
 import numpy as np
-from numba import jit
-from numba.types import void, Tuple, int32, boolean
-from .nested_dissection_map import nested_dissection_map_nb_type, NestedDissectionMap
 from . import utils
 from .. import common_utils
-from ..planar_graph import planar_graph_nb_type, PlanarGraph, planar_graph_constructor
-from ..lipton_tarjan import planar_separator, separation_class
+from ..planar_graph import PlanarGraph, PlanarGraphConstructor
+from ..lipton_tarjan import PlanarSeparator, separation_class
 
 
-@jit(nested_dissection_map_nb_type(planar_graph_nb_type, nested_dissection_map_nb_type),
-        nopython=True)
-def add_neighbours_to_top_level_separator(graph, nd_map):
+class NestedDissection:
 
-    #TODO: rewrite in matrix operations
+    @staticmethod
+    def permute_vertices(graph, top_level_separation):
 
-    top_level_separator_in_order_index = np.where(nd_map.in_order_pre_order_mapping == 0)[0][0]
+        vertices_to_permute_mask = common_utils.repeat_bool(True, graph.size)
 
-    if not np.any(nd_map.in_order_map == top_level_separator_in_order_index):
-        return nd_map
+        return NestedDissection._permute_subgraph_vertices(graph, vertices_to_permute_mask,
+                top_level_separation)
 
-    in_order_map = nd_map.in_order_map.copy() 
+    @staticmethod
+    def _permute_subgraph_vertices(graph, vertices_to_permute_mask, separation):
 
-    for vertex, in_order_index in enumerate(nd_map.in_order_map):
+        if separation[0] == separation_class.UNDEFINED:
+            is_top_level = False
+            separation = PlanarSeparator.mark_separation(graph)
+        else:
+            is_top_level = True
 
-        if in_order_index == top_level_separator_in_order_index:
-            for adjacent_vertex in graph.get_adjacent_vertices(vertex):
-                in_order_map[adjacent_vertex] = top_level_separator_in_order_index
+        first_part_mask = (separation == separation_class.FIRST_PART)
+        second_part_mask = (separation == separation_class.SECOND_PART)
+     
+        if not np.any(first_part_mask) or not np.any(second_part_mask):
 
-    return NestedDissectionMap(in_order_map, nd_map.in_order_pre_order_mapping)
+            if is_top_level:
+                return np.concatenate((np.where(separation != separation_class.SEPARATOR)[0],
+                        np.where(separation == separation_class.SEPARATOR)[0]))
 
-@jit(Tuple((int32[:], int32))(planar_graph_nb_type, nested_dissection_map_nb_type, boolean[:]),
-        nopython=True)
-def get_nested_dissection_permutation_and_top_level_separator_size(graph, nd_map,
-        perfect_matching_mask):
+            return np.where(vertices_to_permute_mask)[0]
 
-    perfect_matching_edge_vertices1 = graph.edges.vertex1[perfect_matching_mask]
-    perfect_matching_edge_vertices2 = graph.edges.vertex2[perfect_matching_mask]
+        separator_mask = (separation == separation_class.SEPARATOR)
 
-    pre_order_map = nd_map.in_order_pre_order_mapping[nd_map.in_order_map]
+        subgraph_vertices_masks = (first_part_mask | separator_mask,
+                second_part_mask | separator_mask)
+        non_separator_edges_mask = \
+                ((separation[graph.edges.vertex1] != separation_class.SEPARATOR) | \
+                (separation[graph.edges.vertex2] != separation_class.SEPARATOR))
 
-    perfect_matching_edges_pre_order_map = \
-            np.minimum(pre_order_map[perfect_matching_edge_vertices1],
-            pre_order_map[perfect_matching_edge_vertices2])
+        vertices_permutation = np.zeros(vertices_to_permute_mask.sum(), dtype=int)
 
-    top_level_separator_edges_count = (perfect_matching_edges_pre_order_map == 0).sum()
+        vertices_permutation_offset = 0
 
-    perfect_matching_edges_permutation = np.argsort(perfect_matching_edges_pre_order_map)[::-1]
+        for subgraph_vertices_mask in subgraph_vertices_masks:
 
-    permutation = np.zeros(graph.size, dtype=np.int32)
-    permutation[::2] = perfect_matching_edge_vertices1[perfect_matching_edges_permutation]
-    permutation[1::2] = perfect_matching_edge_vertices2[perfect_matching_edges_permutation]
+            subgraph_vertices_mapping, subgraph_edge_indices_mapping, subgraph = \
+                    PlanarGraphConstructor.construct_subgraph(graph, subgraph_vertices_mask,
+                    non_separator_edges_mask)
 
-    return permutation, 2*top_level_separator_edges_count
+            subgraph.vertex_costs /= subgraph.vertex_costs.sum()
 
-@jit(nested_dissection_map_nb_type(planar_graph_nb_type, boolean[:]), nopython=True)
-def _get_nested_dissection_submap(graph, vertices_for_map_mask):
+            graph_vertices_mapping = np.zeros(subgraph.size, dtype=int)
 
-    separation = planar_separator.mark_separation(graph)
+            graph_vertices_mapping[subgraph_vertices_mapping[subgraph_vertices_mask]] = \
+                    np.where(subgraph_vertices_mask)[0]
 
-    first_part_mask = (separation == separation_class.FIRST_PART)
-    second_part_mask = (separation == separation_class.SECOND_PART)
+            subgraph_vertices_to_permute_mask = \
+                    (vertices_to_permute_mask[graph_vertices_mapping] & \
+                    (separation[graph_vertices_mapping] != separation_class.SEPARATOR))
 
-    in_order_map = common_utils.repeat_int(-1, graph.size)
-    in_order_map[vertices_for_map_mask] = 0
+            no_separation = np.array([separation_class.UNDEFINED])
 
-    if not np.any(first_part_mask) or not np.any(second_part_mask):
-        return NestedDissectionMap(in_order_map, np.zeros(1, dtype=np.int32))
+            subgraph_vertices_permutation = NestedDissection._permute_subgraph_vertices(subgraph,
+                    subgraph_vertices_to_permute_mask, no_separation)
 
-    separator_mask = (separation == separation_class.SEPARATOR)
+            vertices_permutation[vertices_permutation_offset:vertices_permutation_offset + \
+                    subgraph_vertices_permutation.shape[0]] = \
+                    graph_vertices_mapping[subgraph_vertices_permutation]
 
-    subgraph_vertices_masks = (np.logical_or(first_part_mask, separator_mask),
-            np.logical_or(second_part_mask, separator_mask))
-    non_separator_edges_mask = \
-            np.logical_or(separation[graph.edges.vertex1] != separation_class.SEPARATOR,
-            separation[graph.edges.vertex2] != separation_class.SEPARATOR)
+            vertices_permutation_offset += subgraph_vertices_permutation.shape[0]
 
-    on_first_subgraph = True
-    in_order_offset = 0
-    pre_order_offset = 1
+        vertices_permutation[vertices_permutation_offset:] = \
+                np.where(np.logical_and(separation == separation_class.SEPARATOR,
+                vertices_to_permute_mask))[0]
 
-    in_order_pre_order_mapping = np.zeros(0, dtype=np.int32)
-
-    for subgraph_vertices_mask in subgraph_vertices_masks:
-
-        subgraph_vertices_mapping, subgraph_edge_indices_mapping, subgraph = \
-                planar_graph_constructor.construct_subgraph(graph, subgraph_vertices_mask,
-                non_separator_edges_mask)
-
-        subgraph = utils.normalize_vertex_costs(subgraph)
-
-        graph_vertices_mapping = utils.get_inverse_sub_mapping(subgraph_vertices_mapping,
-                subgraph.size)
-
-        subgraph_vertices_for_map_mask = \
-                np.logical_and(vertices_for_map_mask[graph_vertices_mapping],
-                separation[graph_vertices_mapping] != separation_class.SEPARATOR)
-
-        subgraph_map = _get_nested_dissection_submap(subgraph, subgraph_vertices_for_map_mask)
-
-        in_order_pre_order_mapping = np.concatenate((in_order_pre_order_mapping,
-                subgraph_map.in_order_pre_order_mapping + pre_order_offset)).astype(np.int32)
-
-        in_order_map[graph_vertices_mapping[subgraph_vertices_for_map_mask]] = \
-                subgraph_map.in_order_map[subgraph_vertices_for_map_mask] + in_order_offset
-
-        if on_first_subgraph:
-
-            separator_in_order_index = subgraph_map.in_order_pre_order_mapping.shape[0]
-
-            in_order_map[np.logical_and(vertices_for_map_mask,
-                    separation == separation_class.SEPARATOR)] = separator_in_order_index
-
-            in_order_offset = 1 + separator_in_order_index
-            pre_order_offset = subgraph_map.in_order_pre_order_mapping.max() + 2
-
-            in_order_pre_order_mapping = np.concatenate((in_order_pre_order_mapping,
-                    np.zeros(1, dtype=np.int32)))
-
-        on_first_subgraph = False
-
-    return NestedDissectionMap(in_order_map, in_order_pre_order_mapping)
-
-@jit(nested_dissection_map_nb_type(planar_graph_nb_type), nopython=True)
-def get_nested_dissection_map(graph):
-
-    return _get_nested_dissection_submap(graph, common_utils.repeat_bool(True, graph.size))
+        return vertices_permutation

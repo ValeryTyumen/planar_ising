@@ -1,16 +1,6 @@
 import numpy as np
-from numba import jitclass
-from numba.types import int32
-from .. import common_utils
 
 
-@jitclass([('_vertex1', int32[:]),
-        ('_vertex2', int32[:]),
-        ('_vertex1_next_edge_index', int32[:]),
-        ('_vertex1_previous_edge_index', int32[:]),
-        ('_vertex2_next_edge_index', int32[:]),
-        ('_vertex2_previous_edge_index', int32[:]),
-        ('_size', int32)])
 class PlanarGraphEdges:
     """
     A list of planar graph edges. For each edge two incident vertices and next/previous edge
@@ -144,6 +134,3 @@ class PlanarGraphEdges:
             return self._vertex1_previous_edge_index[edge_index]
 
         return self._vertex2_previous_edge_index[edge_index]
-
-
-planar_graph_edges_nb_type = common_utils.get_numba_type(PlanarGraphEdges)

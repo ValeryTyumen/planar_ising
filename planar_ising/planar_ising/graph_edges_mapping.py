@@ -1,9 +1,3 @@
-from numba import jitclass
-from numba.types import int32, boolean
-from .. import common_utils
-
-
-@jitclass([('_first', int32[:]), ('_second', int32[:])])
 class GraphEdgesMapping:
 
     def __init__(self, first_dual_edges_mapping, second_dual_edges_mapping):
@@ -25,6 +19,3 @@ class GraphEdgesMapping:
     def second(self):
 
         return self._second
-
-
-graph_edges_mapping_nb_type = common_utils.get_numba_type(GraphEdgesMapping)

@@ -1,3 +1,2 @@
-from .csr_matrix import csr_matrix_nb_type, CSRMatrix
-from . import sparse_lu
+from .csr_matrix import CSRMatrix
 from .sparse_lu import SparseLU

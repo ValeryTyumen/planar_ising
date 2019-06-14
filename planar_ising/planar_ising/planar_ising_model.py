@@ -1,10 +1,3 @@
-from numba import jitclass
-from numba.types import int32, float64
-from .. import common_utils
-from ..planar_graph import planar_graph_nb_type
-
-
-@jitclass([('_graph', planar_graph_nb_type), ('_interaction_values', float64[:])])
 class PlanarIsingModel:
     """
     A data structure representing planar zero-field Ising model.
@@ -43,6 +36,11 @@ class PlanarIsingModel:
 
         return self._interaction_values
 
+    @interaction_values.setter
+    def interaction_values(self, value):
+
+        self._interaction_values = value
+
     def get_minus_energy(self, spin_values):
         """
         Get log-weight of spin configuration.
@@ -60,6 +58,3 @@ class PlanarIsingModel:
 
         return (self._interaction_values*spin_values[self._graph.edges.vertex1]*\
                 spin_values[self._graph.edges.vertex2]).sum()
-
-
-planar_ising_model_nb_type = common_utils.get_numba_type(PlanarIsingModel)
